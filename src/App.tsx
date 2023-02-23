@@ -1,24 +1,23 @@
 import React from 'react';
-import logo from './logo.svg';
+import Box from '@mui/material/Box';
+import FileUploader from './components/file-uploader';
 import './App.css';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="App center">
+      <Box 
+        component="span"
+        className='center' 
+        sx={{
+          p: 1,  
+          border: '1px dashed grey',
+          height: '80px',
+          width: '100%',
+          maxWidth: '800px',
+        }}>
+          <FileUploader></FileUploader>
+      </Box> 
     </div>
   );
 }
