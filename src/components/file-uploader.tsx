@@ -4,6 +4,7 @@ import Input from '@mui/material/Input';
 import AWS, { S3 } from "aws-sdk";
 import axios from 'axios';
 import { getPreSignedUrl, getPreSignedUrls } from './presigned-urls-stub';
+import { LargeFileUploader } from './uploaders';
 
 
 const FileUploader: React.FC = () => {
@@ -51,27 +52,16 @@ const FileUploader: React.FC = () => {
     }
   }
 
-  const uploadLargeFile = async (file: Buffer) => {
+  const uploadLargeFile = async () => {
 
-    // if(!selectedFile) {
-    //   console.log("Cannot complete large file upload, no file selected");
-    //   return;
-    // }
+    if(!selectedFile) {
+      console.log("File not selected");
+      return;
+    }
 
-    // //creating a multipart upload
-    // const multipartUpload = await s3.createMultipartUpload({Bucket: S3_BUCKET, Key: file.name}).promise();
+    let largeFileUploader: LargeFileUploader = new LargeFileUploader(s3, selectedFile);
 
-    // const uploadId: string | undefined = multipartUpload.UploadId;
-
-    // if(!uploadId) {
-    //   console.log("Error starting multipart upload");
-    //   return '';
-    // }
-    // let chunksCount: number = (selectedFile.size / 5) + (selectedFile.size % 5 * 1e+6 == 0 ? 0 : 1);
-
-    // const chunkNumberToPresignedUrlMap: Map<number, string> | null = await getPreSignedUrls(s3, uploadId, chunksCount, selectedFile.name);
-
-    // // for(chun)
+    largeFileUploader.uploadFile(() => console.log("Success"), () => console.log("Failure"));
   }
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {

@@ -27,7 +27,7 @@ export const getPreSignedUrl = (s3: AWS.S3, filename: string): string | null => 
     console.log(filename);
     try {
       return s3.getSignedUrl('putObject', {
-        Bucket: process.env.S3_BUCKET,
+        Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: filename,
         Expires: 120000
       });
