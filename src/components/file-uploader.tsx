@@ -17,7 +17,6 @@ const FileUploader: React.FC = () => {
   const secretAccessKey: string | undefined = process.env.REACT_APP_SECRET_ACCESS_KEY || '';
   const sessionToken: string | undefined = process.env.REACT_APP_SESSION_TOKEN || '';
 
-
   // S3 object for interacting with S3
   const s3: AWS.S3 = new AWS.S3({
     credentials: new AWS.Credentials(accessKeyId, secretAccessKey, sessionToken),
@@ -35,7 +34,7 @@ const FileUploader: React.FC = () => {
       return;
     }
 
-    const presignedUrl: string | null = await getPreSignedUrl(s3, selectedFile.name);
+    const presignedUrl: string | null = getPreSignedUrl(s3, selectedFile.name);
 
     if(!presignedUrl) {
       console.log("File upload failed");
@@ -52,17 +51,27 @@ const FileUploader: React.FC = () => {
     }
   }
 
-  const uploadLargeFile = async (file: File) => {
-    const multipartUpload = await s3.createMultipartUpload({Bucket: S3_BUCKET, Key: file.name}).promise();
+  const uploadLargeFile = async (file: Buffer) => {
 
-    const uploadId: string | undefined = multipartUpload.UploadId;
+    // if(!selectedFile) {
+    //   console.log("Cannot complete large file upload, no file selected");
+    //   return;
+    // }
 
-    if(!uploadId) {
-      console.log("Error starting multipart upload");
-      return '';
-    }
+    // //creating a multipart upload
+    // const multipartUpload = await s3.createMultipartUpload({Bucket: S3_BUCKET, Key: file.name}).promise();
 
-    return uploadId;
+    // const uploadId: string | undefined = multipartUpload.UploadId;
+
+    // if(!uploadId) {
+    //   console.log("Error starting multipart upload");
+    //   return '';
+    // }
+    // let chunksCount: number = (selectedFile.size / 5) + (selectedFile.size % 5 * 1e+6 == 0 ? 0 : 1);
+
+    // const chunkNumberToPresignedUrlMap: Map<number, string> | null = await getPreSignedUrls(s3, uploadId, chunksCount, selectedFile.name);
+
+    // // for(chun)
   }
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
