@@ -11,10 +11,11 @@ export class LargeFileUploader {
     file: File;
     uploadId: string;
     numberOfChunks: number;
+    //may not be necessary
     chunkPromises: Promise<ChunkUploader>[];
     deliveredChunks: CompletedUpload[];
     failedChunks: ChunkUploader[];
-    CHUNK_SIZE: number = 5 * 1e+6;
+    CHUNK_SIZE: number = 5 * 1024 * 1024;
 
     constructor(s3: AWS.S3, file: File) {
         this.s3 = s3;
@@ -60,7 +61,7 @@ export class LargeFileUploader {
     }
 
     async uploadFile(fileUploadSuccessCallback: CallableFunction, failure: CallableFunction) {
-        this.numberOfChunks = Math.ceil((this.file.size / this.CHUNK_SIZE)) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
+        this.numberOfChunks = Math.floor((this.file.size / this.CHUNK_SIZE)) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
 
         await this.beginMultipartUpload();
 
@@ -110,7 +111,6 @@ export class ChunkUploader {
     completed: boolean;
     
     constructor(presignedUrl: string, index: number, start: number, end: number, file: File) {
-        console.log("Chunk created for start: ", start, " end: ", end);
         this.presignedUrl = presignedUrl;
         this.etag = '';
         this.index = index;
@@ -122,21 +122,17 @@ export class ChunkUploader {
 
     async upload(success: CallableFunction, failure: CallableFunction): Promise<ChunkUploader> {
         const fileChunk: Blob = this.file.slice(this.start, this.end);
+        console.log("UPloading chunk ", this.index, " of size ", fileChunk.size);
 
         try {
-            console.log("Uploading chunk start: ", this.start, " end: ", this.end);
             const response = await axios.put(this.presignedUrl, fileChunk);
-            console.log("Response data for chunk start: ", this.start, " end: ", this.end);
-            console.log(response);
-            console.log("Headers: ", response.headers);
             this.etag = response.headers.etag;
             this.completed = true;
-            console.log("Etag for chunk ", this.index + 1, ": ", this.etag);
 
             success(this.index, this.etag);
         } catch(error: Error | unknown) {
             this.completed = false;
-            console.log("Upload failed for chunk start: ", this.start, " end: ", this.end);
+            console.log("Upload failed for chunk: ", this.index);
             failure(this);
         }
 
