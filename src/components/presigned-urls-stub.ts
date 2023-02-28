@@ -1,6 +1,6 @@
-export const getPreSignedUrls = async (s3: AWS.S3, uploadId: string, chunksCount: number, filename: string): Promise<Map<number, string>> => {
+export const getPreSignedUrls = async (s3: AWS.S3, uploadId: string, chunksCount: number, filename: string): Promise<Record<number, string>> => {
     const baseParams = {
-        Bucket: process.env.S3_BUCKET || '',
+        Bucket: process.env.REACT_APP_S3_BUCKET || '',
       Key: filename,
       UploadId: uploadId
     };
@@ -17,10 +17,10 @@ export const getPreSignedUrls = async (s3: AWS.S3, uploadId: string, chunksCount
   
     const res = await Promise.all(promises);
   
-    return res.reduce((map: Map<number, string>, chunk, index) => {
-      map.set(index, chunk);
+    return res.reduce((map, part, index) => {
+      map[index] = part
       return map
-    }, {} as Map<number, string>);
+    }, {} as Record<number, string>)
   }
 
 export const getPreSignedUrl = (s3: AWS.S3, filename: string): string | null => {

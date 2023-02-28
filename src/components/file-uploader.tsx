@@ -3,7 +3,7 @@ import Button from '@mui/material/Button';
 import Input from '@mui/material/Input';
 import AWS, { S3 } from "aws-sdk";
 import axios from 'axios';
-import { getPreSignedUrl, getPreSignedUrls } from './presigned-urls-stub';
+import { getPreSignedUrl } from './presigned-urls-stub';
 import { LargeFileUploader } from './uploaders';
 
 
@@ -13,7 +13,6 @@ const FileUploader: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
 
   //constants
-  const S3_BUCKET: string = process.env.S3_BUCKET || '';
   const accessKeyId: string | undefined = process.env.REACT_APP_ACCESS_KEY_ID || '';
   const secretAccessKey: string | undefined = process.env.REACT_APP_SECRET_ACCESS_KEY || '';
   const sessionToken: string | undefined = process.env.REACT_APP_SESSION_TOKEN || '';
@@ -61,7 +60,7 @@ const FileUploader: React.FC = () => {
 
     let largeFileUploader: LargeFileUploader = new LargeFileUploader(s3, selectedFile);
 
-    largeFileUploader.uploadFile(() => console.log("Success"), () => console.log("Failure"));
+    await largeFileUploader.uploadFile(() => console.log("Success"), () => console.log("Failure"));
   }
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -75,7 +74,9 @@ const FileUploader: React.FC = () => {
       if(selectedFile.size < 5*1024) {
         console.log("Uploading small file");
         uploadSmallFile();
-      }      
+      } else {
+        await uploadLargeFile();
+      }
     }
   };
 

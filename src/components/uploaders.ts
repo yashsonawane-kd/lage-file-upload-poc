@@ -1,60 +1,107 @@
 import axios from 'axios';
 import { getPreSignedUrls } from './presigned-urls-stub';
+import { AWSError } from 'aws-sdk';
+import AWS from "aws-sdk";
+import { CompletedUpload } from './types';
 
 
 export class LargeFileUploader {
 
     s3: AWS.S3;
     file: File;
+    uploadId: string;
+    numberOfChunks: number;
     chunkPromises: Promise<ChunkUploader>[];
-    deliveredChunks: Map<number, string>;
+    deliveredChunks: CompletedUpload[];
     failedChunks: ChunkUploader[];
     CHUNK_SIZE: number = 5 * 1e+6;
 
     constructor(s3: AWS.S3, file: File) {
         this.s3 = s3;
         this.file = file;
+        this.uploadId = '';
+        this.numberOfChunks = 0;
         this.chunkPromises = [];
         this.failedChunks = [];
-        this.deliveredChunks = new Map<number, string>();
+        this.deliveredChunks = [];
     }
 
+    async beginMultipartUpload() {
+        const multipartUpload = await this.s3.createMultipartUpload({Bucket: process.env.REACT_APP_S3_BUCKET || '', Key: this.file.name}).promise();
 
+        if(multipartUpload.UploadId) {
+            this.uploadId = multipartUpload.UploadId;
+            console.log("Multipart upload created");
+        } else {
+            console.log("Multipart file upload operation not started by S3");
+            return;
+        }
+    }
 
-    async uploadFile(success: CallableFunction, failure: CallableFunction) {
-        const numberOfChunks: number = (this.file.size / this.CHUNK_SIZE) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
+    async completeMultipartUpload() {
+        try {
+            // will need to be retried
+            const params = {
+                Bucket: process.env.REACT_APP_S3_BUCKET || '',
+                Key: this.file.name,
+                UploadId: this.uploadId,
+                MultipartUpload: { Parts: this.deliveredChunks.sort((a: CompletedUpload, b: CompletedUpload) => a.PartNumber - b.PartNumber) }
+            }
+            
+            this.s3.completeMultipartUpload(params, (error: AWSError, data: AWS.S3.CompleteMultipartUploadOutput) => {
+                console.log(error);
+                console.log(data);
+                console.log("Error while completing upload");
+            });
+            console.log("Multipart upload completed");
+        } catch(error: Error | unknown) {
+            console.log("Multipart upload termination failed");
+        }
+    }
 
-        const multipartUpload = await this.s3.createMultipartUpload({Bucket: process.env.S3_BUCKET || '', Key: this.file.name}).promise();
+    async uploadFile(fileUploadSuccessCallback: CallableFunction, failure: CallableFunction) {
+        this.numberOfChunks = Math.ceil((this.file.size / this.CHUNK_SIZE)) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
 
-        const uploadId: string | undefined = multipartUpload.UploadId;
+        await this.beginMultipartUpload();
 
-        if(!uploadId) {
+        if(!this.uploadId) {
             console.log("Error starting multipart upload");
-            return '';
+            return;
         }
         
-        const presignedUrls: Map<number, string> = await getPreSignedUrls(this.s3, uploadId, numberOfChunks, this.file.name);
+        const presignedUrls: Record<number, string> = await getPreSignedUrls(this.s3, this.uploadId, this.numberOfChunks, this.file.name);
+        console.log(presignedUrls);
 
         let start: number = 0, end: number = 0;
 
-        const chunkDeliverySuccessCallback = (index: number, etag: string) => { this.deliveredChunks.set(index, etag) };
+        const chunkDeliverySuccessCallback = (index: number, etag: string) => { 
+            this.deliveredChunks.push({PartNumber: index + 1, ETag: etag});
+
+            console.log("Delivered chunks: ", this.deliveredChunks.length, ", numberOfChunks: ", this.numberOfChunks);
+
+            if(this.deliveredChunks.length === this.numberOfChunks) {
+                console.log(this.deliveredChunks);
+                this.completeMultipartUpload();
+                fileUploadSuccessCallback();
+            }
+        };
         const chunkDeliveryFailureCallback = (chunkUploader: ChunkUploader) => { this.failedChunks.push(chunkUploader) };
 
-        for(let i: number = 0; i < numberOfChunks; ++i) {
-            start = numberOfChunks * this.CHUNK_SIZE;
-            end = (numberOfChunks + 1) + this.CHUNK_SIZE;
+        for(let i: number = 0; i < this.numberOfChunks; ++i) {
+            start = i * this.CHUNK_SIZE;
+            end = (i + 1) * this.CHUNK_SIZE;
 
             this.chunkPromises.push(
-                (new ChunkUploader(presignedUrls.get(i) || '', i, start, end, this.file)).upload(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback)
+                (new ChunkUploader(presignedUrls[i] || '', i, start, end, this.file)).upload(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback)
             );
         }
     
-        console.log('Failed uploads: ', this.failedChunks.length);
+        
     }
 }
 
 export class ChunkUploader {
-    url: string;
+    presignedUrl: string;
     etag: string;
     index: number;
     start: number;
@@ -62,8 +109,9 @@ export class ChunkUploader {
     file: File;
     completed: boolean;
     
-    constructor(url: string, index: number, start: number, end: number, file: File) {
-        this.url = url;
+    constructor(presignedUrl: string, index: number, start: number, end: number, file: File) {
+        console.log("Chunk created for start: ", start, " end: ", end);
+        this.presignedUrl = presignedUrl;
         this.etag = '';
         this.index = index;
         this.start = start;
@@ -76,14 +124,19 @@ export class ChunkUploader {
         const fileChunk: Blob = this.file.slice(this.start, this.end);
 
         try {
-            const response = await axios.put(this.url, fileChunk);
-            this.etag = response.data.Etag;
+            console.log("Uploading chunk start: ", this.start, " end: ", this.end);
+            const response = await axios.put(this.presignedUrl, fileChunk);
+            console.log("Response data for chunk start: ", this.start, " end: ", this.end);
+            console.log(response);
+            console.log("Headers: ", response.headers);
+            this.etag = response.headers.etag;
             this.completed = true;
+            console.log("Etag for chunk ", this.index + 1, ": ", this.etag);
 
             success(this.index, this.etag);
         } catch(error: Error | unknown) {
             this.completed = false;
-
+            console.log("Upload failed for chunk start: ", this.start, " end: ", this.end);
             failure(this);
         }
 
