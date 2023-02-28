@@ -12,7 +12,7 @@ export class LargeFileUploader {
     uploadId: string;
     numberOfChunks: number;
     //may not be necessary
-    chunkPromises: Promise<ChunkUploader>[];
+    chunkQueue: ChunkUploader[];
     deliveredChunks: CompletedUpload[];
     failedChunks: ChunkUploader[];
     CHUNK_SIZE: number = 5 * 1024 * 1024;
@@ -22,7 +22,7 @@ export class LargeFileUploader {
         this.file = file;
         this.uploadId = '';
         this.numberOfChunks = 0;
-        this.chunkPromises = [];
+        this.chunkQueue = [];
         this.failedChunks = [];
         this.deliveredChunks = [];
     }
@@ -60,6 +60,11 @@ export class LargeFileUploader {
         }
     }
 
+    async handleUploadInterruption() {
+
+    }
+
+
     async uploadFile(fileUploadSuccessCallback: CallableFunction, failure: CallableFunction) {
         this.numberOfChunks = Math.floor((this.file.size / this.CHUNK_SIZE)) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
 
@@ -71,7 +76,6 @@ export class LargeFileUploader {
         }
         
         const presignedUrls: Record<number, string> = await getPreSignedUrls(this.s3, this.uploadId, this.numberOfChunks, this.file.name);
-        console.log(presignedUrls);
 
         let start: number = 0, end: number = 0;
 
@@ -92,9 +96,10 @@ export class LargeFileUploader {
             start = i * this.CHUNK_SIZE;
             end = (i + 1) * this.CHUNK_SIZE;
 
-            this.chunkPromises.push(
-                (new ChunkUploader(presignedUrls[i] || '', i, start, end, this.file)).upload(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback)
-            );
+            let chunkUploader: ChunkUploader = new ChunkUploader(presignedUrls[i] || '', i, start, end, this.file);
+
+            this.chunkQueue.push(chunkUploader);
+            chunkUploader.upload(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback);
         }
     
         
