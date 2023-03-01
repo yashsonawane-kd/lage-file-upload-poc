@@ -15,7 +15,7 @@ export class LargeFileUploader {
     //may not be necessary
     deliveredChunks: CompletedUpload[];
     chunkUploaderIndexToChunkUploaderMap: Map<number, ChunkUploader>;
-    CHUNK_SIZE: number = 5 * 1024 * 1024;
+    CHUNK_SIZE: number = 10 * 1024 * 1024;
 
     fileUploadSuccessCallback: CallableFunction = () => {};
     fileUploadFailureCallback: CallableFunction = () => {};
