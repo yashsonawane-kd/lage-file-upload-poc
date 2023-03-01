@@ -3,6 +3,7 @@ import { getPreSignedUrls } from './presigned-urls-stub';
 import { AWSError } from 'aws-sdk';
 import AWS from "aws-sdk";
 import { CompletedUpload } from './types';
+import { MAX_RETRY_INTERVAL } from './constants';
 
 
 export class LargeFileUploader {
@@ -15,43 +16,12 @@ export class LargeFileUploader {
     deliveredChunks: CompletedUpload[];
     chunkUploaderIndexToChunkUploaderMap: Map<number, ChunkUploader>;
     CHUNK_SIZE: number = 5 * 1024 * 1024;
-    MAX_RETRY_INTERVAL: number = 30_000;
 
     fileUploadSuccessCallback: CallableFunction = () => {};
+    fileUploadFailureCallback: CallableFunction = () => {};
 
-
-    chunkDeliverySuccessCallback(index: number, etag: string)  {         
-        console.log("Delivered chunks: ", this.deliveredChunks.length, ", numberOfChunks: ", this.numberOfChunks);
-
-        // fetch the chunk uploader from the map and update the status
-        let chunkUploader: ChunkUploader | undefined = this.chunkUploaderIndexToChunkUploaderMap.get(index);
-
-        if(!chunkUploader) {
-            console.log("Chunk not found");
-            return;
-        }
-
-        chunkUploader.completed = true;
-        this.chunkUploaderIndexToChunkUploaderMap.set(index, chunkUploader); 
-
-        if(this.deliveredChunks.length === this.numberOfChunks) {
-            this.completeMultipartUpload();
-            this.fileUploadSuccessCallback();
-        }
-    };
-
-    chunkDeliveryFailureCallback(chunkUploader: ChunkUploader) { 
-
-        if(chunkUploader.retryInterval > this.MAX_RETRY_INTERVAL) {
-            console.log("Chunk of index: ", chunkUploader.index, " failed too many times! Resetting retry interval");
-
-            //discuss the retry strategy
-            chunkUploader.retryInterval = 1_000;
-        }
-
-        chunkUploader.retryInterval *= 2;
-        setTimeout(chunkUploader.upload.bind(this.chunkDeliverySuccessCallback, this.chunkDeliveryFailureCallback), chunkUploader.retryInterval);
-    };
+    // for testing
+    deliveredSet: Set<number> = new Set<number>();
 
     constructor(s3: AWS.S3, file: File) {
         this.s3 = s3;
@@ -100,15 +70,69 @@ export class LargeFileUploader {
     }
 
     resumeUpload(): void {
-        this.chunkUploaderIndexToChunkUploaderMap.forEach( (chunkUploader: ChunkUploader, index: number) => {
-            if(!chunkUploader.completed) {
-                chunkUploader.upload(this.chunkDeliverySuccessCallback, this.chunkDeliveryFailureCallback);
-            }
-        });
+
+        console.log("Resuming uploads");
+        this.startUploads(this.fileUploadSuccessCallback);
     }
 
-    async uploadFile(fileUploadSuccessCallback: CallableFunction, failure: CallableFunction) {
+    async startUploads(fileUploadSuccessCallback: CallableFunction) {
+
+        const chunkDeliverySuccessCallback = (index: number, etag: string) => {         
+            console.log("Chunk ", index, " delivered");
+    
+            if(this.deliveredSet.has(index)) {
+                console.log(index, " being repeated");
+                return;
+            } else {
+                this.deliveredSet.add(index);
+            }
+
+            // fetch the chunk uploader from the map and update the status
+            let chunkUploader: ChunkUploader | undefined = this.chunkUploaderIndexToChunkUploaderMap.get(index);
+    
+            if(!chunkUploader) {
+                console.log("Chunk not found");
+                return;
+            }
+    
+            this.deliveredChunks.push({ETag: chunkUploader.etag, PartNumber: chunkUploader.index });
+
+            this.chunkUploaderIndexToChunkUploaderMap.set(index, chunkUploader); 
+            console.log("Delivered chunks: ", this.deliveredChunks.length, ", numberOfChunks: ", this.numberOfChunks);
+            if(this.deliveredChunks.length === this.numberOfChunks) {
+                this.completeMultipartUpload();
+                fileUploadSuccessCallback();
+            }
+        };
+    
+        const chunkDeliveryFailureCallback = (chunkUploader: ChunkUploader) =>{ 
+    
+            if(chunkUploader.retryInterval > MAX_RETRY_INTERVAL) {
+                console.log("Chunk of index: ", chunkUploader.index, " failed too many times! Resetting retry interval");
+    
+                //discuss the retry strategy
+                chunkUploader.retryInterval = 1_000;
+            }
+    
+            chunkUploader.retryInterval *= 2;
+            setTimeout(chunkUploader.upload.bind(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback), chunkUploader.retryInterval);
+        };
+
+        console.log("Map size: ", this.chunkUploaderIndexToChunkUploaderMap.size);
+        console.log("Delivered chunks: ", this.deliveredChunks.length);
+
+        this.chunkUploaderIndexToChunkUploaderMap.forEach( (chunkUploader: ChunkUploader, index: number) => {
+            if(!chunkUploader.completed) {
+                chunkUploader.upload(chunkDeliverySuccessCallback, chunkDeliveryFailureCallback);
+            }
+        })
+    }
+
+    async uploadFile(fileUploadSuccessCallback: CallableFunction, fileUploadFailureCallback: CallableFunction) {
         this.numberOfChunks = Math.floor((this.file.size / this.CHUNK_SIZE)) + (this.file.size % this.CHUNK_SIZE === 0? 0 : 1);
+
+        this.fileUploadSuccessCallback = fileUploadSuccessCallback;
+        this.fileUploadFailureCallback = fileUploadFailureCallback;
 
         await this.beginMultipartUpload();
 
@@ -127,15 +151,14 @@ export class LargeFileUploader {
             start = i * this.CHUNK_SIZE;
             end = (i + 1) * this.CHUNK_SIZE;
 
-            let chunkUploader: ChunkUploader = new ChunkUploader(presignedUrls[i] || '', i, start, end, this.file);
+            let chunkUploader: ChunkUploader = new ChunkUploader(presignedUrls[i] || '', i + 1, start, end, this.file);
 
             this.chunkUploaderIndexToChunkUploaderMap.set(chunkUploader.index, chunkUploader);
-
-            chunkUploader.upload(this.chunkDeliverySuccessCallback, this.chunkDeliveryFailureCallback);
         }
     
-        
+        this.startUploads(fileUploadSuccessCallback);
     }
+
 }
 
 export class ChunkUploader {
