@@ -1,8 +1,9 @@
 export const getPreSignedUrls = async (s3: AWS.S3, uploadId: string, chunksCount: number, filename: string): Promise<Record<number, string>> => {
     const baseParams = {
-        Bucket: process.env.REACT_APP_S3_BUCKET || '',
+      Bucket: process.env.REACT_APP_S3_BUCKET || '',
       Key: filename,
-      UploadId: uploadId
+      UploadId: uploadId,
+      Expires: 120000
     };
   
     const promises: Promise<string>[] = [];
