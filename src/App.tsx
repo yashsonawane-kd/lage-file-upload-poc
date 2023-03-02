@@ -1,6 +1,6 @@
 import React from 'react';
 import Box from '@mui/material/Box';
-import FileUploader from './components/file-uploader';
+import FileUploader from './components/FileUploader';
 import './App.css';
 
 function App() {
