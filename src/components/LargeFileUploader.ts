@@ -14,6 +14,7 @@ export class LargeFileUploader {
     numberOfChunks: number;
     //may not be necessary
     deliveredChunks: CompletedUpload[];
+    chunkUploadQueue: ChunkUploader[]
     chunkUploaderIndexToChunkUploaderMap: Map<number, ChunkUploader>;
     CHUNK_SIZE: number = 100 * 1024 * 1024;
 
@@ -30,6 +31,7 @@ export class LargeFileUploader {
         this.numberOfChunks = 0;
         this.deliveredChunks = [];
         this.chunkUploaderIndexToChunkUploaderMap = new Map<number, ChunkUploader>();
+        this.chunkUploadQueue = [];
 
         window.addEventListener("offline", () => {
             this.handleUploadInterrupt();
@@ -70,7 +72,6 @@ export class LargeFileUploader {
     }
 
     resumeUpload(): void {
-
         console.log("Resuming uploads");
         this.startUploads(this.fileUploadSuccessCallback);
     }
