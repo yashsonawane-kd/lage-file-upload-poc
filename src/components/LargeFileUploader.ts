@@ -1,10 +1,9 @@
-import { getPreSignedUrls } from './presigned-urls-stub';
-import { AWSError } from 'aws-sdk';
-import AWS from "aws-sdk";
-import { CompletedUpload } from './types';
-import { MAX_RETRY_INTERVAL } from './constants';
+// import { getPreSignedUrls } from "./presigned-urls-stub";
+import { CompletedUpload } from "./types";
+import { MAX_RETRY_INTERVAL } from "./constants";
 import { ChunkUploader } from "./ChunkUploader";
 import axios, { AxiosResponse } from "axios";
+import { PresignedUrlsRequestParams } from "./types";
 
 export class LargeFileUploader {
   s3: AWS.S3;
@@ -38,6 +37,49 @@ export class LargeFileUploader {
     });
   }
 
+  async uploadFile(
+    fileUploadSuccessCallback: CallableFunction,
+    fileUploadFailureCallback: CallableFunction
+  ) {
+    this.numberOfChunks =
+      Math.floor(this.file.size / this.CHUNK_SIZE) +
+      (this.file.size % this.CHUNK_SIZE === 0 ? 0 : 1);
+
+    this.fileUploadSuccessCallback = fileUploadSuccessCallback;
+    this.fileUploadFailureCallback = fileUploadFailureCallback;
+
+    await this.beginMultipartUpload();
+
+    if (!this.uploadId) {
+      throw new Error("Error starting multipart upload");
+    }
+
+    const presignedUrls: Record<number, string> = await this.getPreSignedUrls();
+
+    let start: number = 0,
+      end: number = 0;
+
+    for (let i: number = 0; i < this.numberOfChunks; ++i) {
+      start = i * this.CHUNK_SIZE;
+      end = (i + 1) * this.CHUNK_SIZE;
+
+      let chunkUploader: ChunkUploader = new ChunkUploader(
+        presignedUrls[i] || "",
+        i + 1,
+        start,
+        end,
+        this.file
+      );
+
+      this.chunkUploaderIndexToChunkUploaderMap.set(
+        chunkUploader.index,
+        chunkUploader
+      );
+    }
+
+    this.startUploads(fileUploadSuccessCallback);
+  }
+
   async beginMultipartUpload(): Promise<void> {
     // const multipartUpload = await this.s3.createMultipartUpload({Bucket: process.env.REACT_APP_S3_BUCKET || '', Key: this.file.name}).promise();
     const response = await axios.get("beginMultipartUpload", {
@@ -52,6 +94,37 @@ export class LargeFileUploader {
     } else {
       this.uploadId = response.data.uploadId;
       return;
+    }
+  }
+
+  async getPreSignedUrls(): Promise<Record<number, string>> {
+    try {
+      if (!this.uploadId) {
+        throw new Error("Upload Id not found");
+      }
+
+      if (!this.file) {
+        throw new Error("File not found");
+      }
+
+      const params: PresignedUrlsRequestParams = {
+        uploadId: this.uploadId,
+        numberOfChunks: this.numberOfChunks,
+        key: this.file.name,
+      };
+
+      const response: AxiosResponse = await axios.get("getPresignedUrls", {
+        params,
+      });
+
+      if (response.status !== 200) {
+        throw new Error("Presigned urls could not be fetched");
+      }
+
+      return response.data.presignedUrls;
+    } catch (error: Error | unknown) {
+      console.log(error);
+      throw error;
     }
   }
 
@@ -167,54 +240,5 @@ export class LargeFileUploader {
         }
       }
     );
-  }
-
-  async uploadFile(
-    fileUploadSuccessCallback: CallableFunction,
-    fileUploadFailureCallback: CallableFunction
-  ) {
-    this.numberOfChunks =
-      Math.floor(this.file.size / this.CHUNK_SIZE) +
-      (this.file.size % this.CHUNK_SIZE === 0 ? 0 : 1);
-
-    this.fileUploadSuccessCallback = fileUploadSuccessCallback;
-    this.fileUploadFailureCallback = fileUploadFailureCallback;
-
-    await this.beginMultipartUpload();
-
-    if (!this.uploadId) {
-      console.log("Error starting multipart upload");
-      return;
-    }
-
-    const presignedUrls: Record<number, string> = await getPreSignedUrls(
-      this.s3,
-      this.uploadId,
-      this.numberOfChunks,
-      this.file.name
-    );
-
-    let start: number = 0,
-      end: number = 0;
-
-    for (let i: number = 0; i < this.numberOfChunks; ++i) {
-      start = i * this.CHUNK_SIZE;
-      end = (i + 1) * this.CHUNK_SIZE;
-
-      let chunkUploader: ChunkUploader = new ChunkUploader(
-        presignedUrls[i] || "",
-        i + 1,
-        start,
-        end,
-        this.file
-      );
-
-      this.chunkUploaderIndexToChunkUploaderMap.set(
-        chunkUploader.index,
-        chunkUploader
-      );
-    }
-
-    this.startUploads(fileUploadSuccessCallback);
   }
 }
