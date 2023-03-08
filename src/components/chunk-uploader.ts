@@ -29,7 +29,6 @@ export class ChunkUploader {
             const response = await axios.put(this.presignedUrl, fileChunk);
             this.etag = response.headers.etag;
             this.completed = true;
-
             success(this.index, this.etag);
         } catch(error: Error | unknown) {
             this.completed = false;
