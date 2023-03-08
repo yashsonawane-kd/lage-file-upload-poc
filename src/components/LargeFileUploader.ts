@@ -6,23 +6,17 @@ import axios, { AxiosResponse } from "axios";
 import { PresignedUrlsRequestParams } from "./types";
 
 export class LargeFileUploader {
-  //   s3: AWS.S3;
   file: File;
   uploadId: string;
   numberOfChunks: number;
-  //may not be necessary
   deliveredChunks: CompletedUpload[];
   chunkUploaderIndexToChunkUploaderMap: Map<number, ChunkUploader>;
   CHUNK_SIZE: number = 5 * 1024 * 1024;
-
   fileUploadSuccessCallback: CallableFunction = () => {};
   fileUploadFailureCallback: CallableFunction = () => {};
-
-  // for testing
   deliveredSet: Set<number> = new Set<number>();
 
   constructor(file: File) {
-    // this.s3 = s3;
     this.file = file;
     this.uploadId = "";
     this.numberOfChunks = 0;
@@ -81,7 +75,6 @@ export class LargeFileUploader {
   }
 
   async beginMultipartUpload(): Promise<void> {
-    // const multipartUpload = await this.s3.createMultipartUpload({Bucket: process.env.REACT_APP_S3_BUCKET || '', Key: this.file.name}).promise();
     const response = await axios.get("beginMultipartUpload", {
       params: {
         Bucket: process.env.REACT_APP_S3_BUCKET || "",
@@ -226,9 +219,6 @@ export class LargeFileUploader {
         chunkUploader.retryInterval
       );
     };
-
-    // console.log("Map size: ", this.chunkUploaderIndexToChunkUploaderMap.size);
-    // console.log("Delivered chunks: ", this.deliveredChunks.length);
 
     this.chunkUploaderIndexToChunkUploaderMap.forEach(
       (chunkUploader: ChunkUploader, index: number) => {

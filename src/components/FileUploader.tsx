@@ -1,9 +1,6 @@
 import React, { ChangeEvent, useState } from 'react';
 import Button from '@mui/material/Button';
-import Input from '@mui/material/Input';
-import AWS from "aws-sdk";
-import axios from 'axios';
-import { getPreSignedUrl } from './presigned-urls-stub';
+import Input from "@mui/material/Input";
 import { LargeFileUploader } from "./LargeFileUploader";
 
 
@@ -11,16 +8,6 @@ const FileUploader: React.FC = () => {
   // file to upload
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
 
-  //constants
-  // const accessKeyId: string | undefined = process.env.REACT_APP_ACCESS_KEY_ID || '';
-  // const secretAccessKey: string | undefined = process.env.REACT_APP_SECRET_ACCESS_KEY || '';
-  // const sessionToken: string | undefined = process.env.REACT_APP_SESSION_TOKEN || '';
-
-  // S3 object for interacting with S3
-  // const s3: AWS.S3 = new AWS.S3({
-  //   credentials: new AWS.Credentials(accessKeyId, secretAccessKey, sessionToken),
-  //   signatureVersion: 'v4'
-  // });
 
   const uploadSmallFile = async (): Promise<void> => {
     if (!selectedFile) {
