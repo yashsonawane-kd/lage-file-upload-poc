@@ -6,7 +6,7 @@ import axios, { AxiosResponse } from "axios";
 import { PresignedUrlsRequestParams } from "./types";
 
 export class LargeFileUploader {
-  s3: AWS.S3;
+  //   s3: AWS.S3;
   file: File;
   uploadId: string;
   numberOfChunks: number;
@@ -21,8 +21,8 @@ export class LargeFileUploader {
   // for testing
   deliveredSet: Set<number> = new Set<number>();
 
-  constructor(s3: AWS.S3, file: File) {
-    this.s3 = s3;
+  constructor(file: File) {
+    // this.s3 = s3;
     this.file = file;
     this.uploadId = "";
     this.numberOfChunks = 0;
