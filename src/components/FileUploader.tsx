@@ -24,19 +24,15 @@ const FileUploader: React.FC = () => {
   });
 
 
-  // TODO
-  // Perform the logic to determine file size
-  // Perform the logic to upload file to AWS S3
-  // To consider upload interruptions and other scenarios
-
   const uploadSmallFile = async () => {
-    if(!selectedFile) {
+    if (!selectedFile) {
       return;
     }
 
+    //TODO: change this call
     const presignedUrl: string | null = getPreSignedUrl(s3, selectedFile.name);
 
-    if(!presignedUrl) {
+    if (!presignedUrl) {
       console.log("File upload failed");
       return;
     }
@@ -45,8 +41,8 @@ const FileUploader: React.FC = () => {
       console.log(presignedUrl);
       const response = await axios.put(presignedUrl, selectedFile);
       console.log(response);
-    }catch(error: Error | unknown) {
-      console.log('Failed upload with presigned url');
+    } catch (error: Error | unknown) {
+      console.log("Failed upload with presigned url");
       console.log(error);
     }
   }
