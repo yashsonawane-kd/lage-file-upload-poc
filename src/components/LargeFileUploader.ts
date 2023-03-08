@@ -4,7 +4,7 @@ import AWS from "aws-sdk";
 import { CompletedUpload } from './types';
 import { MAX_RETRY_INTERVAL } from './constants';
 import { ChunkUploader } from "./ChunkUploader";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 
 export class LargeFileUploader {
   s3: AWS.S3;
@@ -70,12 +70,15 @@ export class LargeFileUploader {
         },
       };
 
-      this.s3.completeMultipartUpload(
-        params,
-        (error: AWSError, data: AWS.S3.CompleteMultipartUploadOutput) => {
-          throw new Error("Failed to complete multipart upload");
-        }
+      const response: AxiosResponse = await axios.post(
+        "completeMultipartUpload",
+        params
       );
+
+      if (response.status !== 200) {
+        throw new Error("Upload could not be completed");
+      }
+
       console.log("Multipart upload completed");
     } catch (error: Error | unknown) {
       console.log("Multipart upload termination failed");
@@ -151,8 +154,8 @@ export class LargeFileUploader {
       );
     };
 
-    console.log("Map size: ", this.chunkUploaderIndexToChunkUploaderMap.size);
-    console.log("Delivered chunks: ", this.deliveredChunks.length);
+    // console.log("Map size: ", this.chunkUploaderIndexToChunkUploaderMap.size);
+    // console.log("Delivered chunks: ", this.deliveredChunks.length);
 
     this.chunkUploaderIndexToChunkUploaderMap.forEach(
       (chunkUploader: ChunkUploader, index: number) => {
