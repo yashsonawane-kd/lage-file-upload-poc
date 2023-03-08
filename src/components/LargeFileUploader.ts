@@ -3,7 +3,7 @@ import { AWSError } from 'aws-sdk';
 import AWS from "aws-sdk";
 import { CompletedUpload } from './types';
 import { MAX_RETRY_INTERVAL } from './constants';
-import { ChunkUploader } from './chunk-uploader';
+import { ChunkUploader } from "./ChunkUploader";
 
 
 export class LargeFileUploader {

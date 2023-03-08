@@ -4,7 +4,7 @@ import Input from '@mui/material/Input';
 import AWS from "aws-sdk";
 import axios from 'axios';
 import { getPreSignedUrl } from './presigned-urls-stub';
-import { LargeFileUploader } from './uploaders';
+import { LargeFileUploader } from "./LargeFileUploader";
 
 
 const FileUploader: React.FC = () => {
