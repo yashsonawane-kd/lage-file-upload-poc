@@ -1,13 +1,11 @@
-import React, { ChangeEvent, useState } from 'react';
-import Button from '@mui/material/Button';
+import React, { ChangeEvent, useState } from "react";
+import Button from "@mui/material/Button";
 import Input from "@mui/material/Input";
 import { LargeFileUploader } from "./LargeFileUploader";
-
 
 const FileUploader: React.FC = () => {
   // file to upload
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
-
 
   const uploadSmallFile = async (): Promise<void> => {
     if (!selectedFile) {

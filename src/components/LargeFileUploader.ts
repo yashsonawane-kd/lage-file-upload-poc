@@ -1,10 +1,8 @@
-// import { getPreSignedUrls } from "./presigned-urls-stub";
 import { CompletedUpload } from "./types";
-import { MAX_RETRY_INTERVAL } from "./constants";
+import { MAX_RETRY_INTERVAL, PRESIGNED_URLS_EXPIRY } from "./constants";
 import { ChunkUploader } from "./ChunkUploader";
 import axios, { AxiosResponse } from "axios";
 import { PresignedUrlsRequestParams } from "./types";
-
 export class LargeFileUploader {
   file: File;
   uploadId: string;
@@ -26,6 +24,8 @@ export class LargeFileUploader {
       ChunkUploader
     >();
 
+    // const s3 = new AWS.S3({credentials: {}})
+
     window.addEventListener("offline", () => {
       this.handleUploadInterrupt();
     });
@@ -42,7 +42,7 @@ export class LargeFileUploader {
     this.fileUploadSuccessCallback = fileUploadSuccessCallback;
     this.fileUploadFailureCallback = fileUploadFailureCallback;
 
-    await this.beginMultipartUpload();
+    await this.beginMultipartUploadAtS3();
 
     if (!this.uploadId) {
       throw new Error("Error starting multipart upload");
@@ -71,20 +71,25 @@ export class LargeFileUploader {
       );
     }
 
-    this.startUploads(fileUploadSuccessCallback);
+    // this.startUploads(fileUploadSuccessCallback);
   }
 
-  async beginMultipartUpload(): Promise<void> {
-    const response = await axios.get("beginMultipartUpload", {
-      params: {
-        Bucket: process.env.REACT_APP_S3_BUCKET || "",
-        Key: this.file.name,
-      },
-    });
+  async beginMultipartUploadAtS3(): Promise<void> {
+    console.log(process.env.REACT_APP_S3_BUCKET);
+    const response = await axios.get(
+      "https://75poi4in04.execute-api.us-east-1.amazonaws.com/test/create-multipart-upload",
+      {
+        params: {
+          bucket: process.env.REACT_APP_S3_BUCKET,
+          objectName: this.file.name,
+        },
+      }
+    );
 
     if (response.status !== 200) {
       throw new Error("Multipart upload could not be started");
     } else {
+      console.log("Upload id", this.uploadId);
       this.uploadId = response.data.uploadId;
       return;
     }
@@ -101,14 +106,19 @@ export class LargeFileUploader {
       }
 
       const params: PresignedUrlsRequestParams = {
+        bucket: process.env.REACT_APP_S3_BUCKET || "",
         uploadId: this.uploadId,
         numberOfChunks: this.numberOfChunks,
-        key: this.file.name,
+        objectName: this.file.name,
+        expires: PRESIGNED_URLS_EXPIRY,
       };
 
-      const response: AxiosResponse = await axios.get("getPresignedUrls", {
-        params,
-      });
+      const response: AxiosResponse = await axios.get(
+        process.env.REACT_APP_MULTIPART_UPLOAD_APIS + "/get-presigned-urls",
+        {
+          params,
+        }
+      );
 
       if (response.status !== 200) {
         throw new Error("Presigned urls could not be fetched");
