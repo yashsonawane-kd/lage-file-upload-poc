@@ -31,7 +31,7 @@ export class ChunkUploader {
     failure: CallableFunction
   ): Promise<ChunkUploader> {
     const fileChunk: Blob = this.file.slice(this.start, this.end);
-    // console.log("Uploading chunk ", this.index, " of size ", fileChunk.size);
+    console.log("Uploading chunk ", this.index, " of size ", fileChunk.size);
 
     try {
       const response = await axios.put(this.presignedUrl, fileChunk);
@@ -41,6 +41,7 @@ export class ChunkUploader {
     } catch (error: Error | unknown) {
       this.completed = false;
       console.log("Upload failed for chunk: ", this.index);
+      console.log(error);
       failure(this);
     }
 

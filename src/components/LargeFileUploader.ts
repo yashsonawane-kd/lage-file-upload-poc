@@ -48,8 +48,8 @@ export class LargeFileUploader {
       throw new Error("Error starting multipart upload");
     }
 
-    const presignedUrls: Record<number, string> = await this.getPreSignedUrls();
-
+    const preSignedUrls: Record<number, string> = await this.getPreSignedUrls();
+    console.log(preSignedUrls[0]);
     let start: number = 0,
       end: number = 0;
 
@@ -58,7 +58,7 @@ export class LargeFileUploader {
       end = (i + 1) * this.CHUNK_SIZE;
 
       let chunkUploader: ChunkUploader = new ChunkUploader(
-        presignedUrls[i] || "",
+        preSignedUrls[i] || "",
         i + 1,
         start,
         end,
@@ -71,7 +71,7 @@ export class LargeFileUploader {
       );
     }
 
-    // this.startUploads(fileUploadSuccessCallback);
+    this.startUploads(fileUploadSuccessCallback);
   }
 
   async beginMultipartUploadAtS3(): Promise<void> {
@@ -105,6 +105,7 @@ export class LargeFileUploader {
         throw new Error("File not found");
       }
 
+      console.log("bucket: ", process.env.REACT_APP_S3_BUCKET);
       const params: PresignedUrlsRequestParams = {
         bucket: process.env.REACT_APP_S3_BUCKET || "",
         uploadId: this.uploadId,
@@ -113,6 +114,12 @@ export class LargeFileUploader {
         expires: PRESIGNED_URLS_EXPIRY,
       };
 
+      console.log("params, ", params);
+
+      console.log(
+        "multipart upload lambda url " +
+          process.env.REACT_APP_MULTIPART_UPLOAD_APIS
+      );
       const response: AxiosResponse = await axios.get(
         process.env.REACT_APP_MULTIPART_UPLOAD_APIS + "/get-presigned-urls",
         {
@@ -124,7 +131,7 @@ export class LargeFileUploader {
         throw new Error("Presigned urls could not be fetched");
       }
 
-      return response.data.presignedUrls;
+      return response.data.preSignedUrls;
     } catch (error: Error | unknown) {
       console.log(error);
       throw error;
@@ -135,19 +142,18 @@ export class LargeFileUploader {
     try {
       // will need to be retried
       const params = {
-        Bucket: process.env.REACT_APP_S3_BUCKET || "",
-        Key: this.file.name,
-        UploadId: this.uploadId,
-        MultipartUpload: {
-          Parts: this.deliveredChunks.sort(
-            (a: CompletedUpload, b: CompletedUpload) =>
-              a.PartNumber - b.PartNumber
-          ),
-        },
+        bucket: process.env.REACT_APP_S3_BUCKET || "",
+        objectName: this.file.name,
+        uploadId: this.uploadId,
+        Parts: this.deliveredChunks.sort(
+          (a: CompletedUpload, b: CompletedUpload) =>
+            a.PartNumber - b.PartNumber
+        ),
       };
 
       const response: AxiosResponse = await axios.post(
-        "completeMultipartUpload",
+        process.env.REACT_APP_MULTIPART_UPLOAD_APIS +
+          "/complete-multipart-upload",
         params
       );
 
@@ -221,11 +227,20 @@ export class LargeFileUploader {
       }
 
       chunkUploader.retryInterval *= 2;
+      // setTimeout(
+      //   chunkUploader.upload.bind(
+      //     chunkDeliverySuccessCallback,
+      //     chunkDeliveryFailureCallback
+      //   ),
+      //   chunkUploader.retryInterval
+      // );
+
       setTimeout(
-        chunkUploader.upload.bind(
-          chunkDeliverySuccessCallback,
-          chunkDeliveryFailureCallback
-        ),
+        () =>
+          chunkUploader.upload(
+            chunkDeliverySuccessCallback,
+            chunkDeliveryFailureCallback
+          ),
         chunkUploader.retryInterval
       );
     };
@@ -240,5 +255,16 @@ export class LargeFileUploader {
         }
       }
     );
+  }
+
+  dummy() {
+    let a = {
+      bucket: "large-file-upload-temp",
+      uploadId:
+        "hbCl6N47fFRO1pidO6tv5BcH64jJQrAWUqUs2bXsogsDZK0eoT…29hgNJmDLmdsM.wos_MORS.0nwnOuZ6ttsZq.kaNbLvGbsQ--",
+      numberOfChunks: 205,
+      objectName: "onegbfile",
+      expires: 12000,
+    };
   }
 }
