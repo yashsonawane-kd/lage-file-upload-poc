@@ -145,7 +145,7 @@ export class LargeFileUploader {
         bucket: process.env.REACT_APP_S3_BUCKET || "",
         objectName: this.file.name,
         uploadId: this.uploadId,
-        Parts: this.deliveredChunks.sort(
+        parts: this.deliveredChunks.sort(
           (a: CompletedUpload, b: CompletedUpload) =>
             a.PartNumber - b.PartNumber
         ),
@@ -200,6 +200,12 @@ export class LargeFileUploader {
         ETag: chunkUploader.etag,
         PartNumber: chunkUploader.index,
       });
+      console.log(
+        "Pushing chunk: ",
+        chunkUploader.etag,
+        "- ",
+        chunkUploader.index
+      );
 
       this.chunkUploaderIndexToChunkUploaderMap.set(index, chunkUploader);
       console.log(
@@ -255,16 +261,5 @@ export class LargeFileUploader {
         }
       }
     );
-  }
-
-  dummy() {
-    let a = {
-      bucket: "large-file-upload-temp",
-      uploadId:
-        "hbCl6N47fFRO1pidO6tv5BcH64jJQrAWUqUs2bXsogsDZK0eoT…29hgNJmDLmdsM.wos_MORS.0nwnOuZ6ttsZq.kaNbLvGbsQ--",
-      numberOfChunks: 205,
-      objectName: "onegbfile",
-      expires: 12000,
-    };
   }
 }

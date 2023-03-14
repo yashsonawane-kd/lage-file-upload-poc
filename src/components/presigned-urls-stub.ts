@@ -49,3 +49,9 @@ export const getPreSignedUrl = (
     return null;
   }
 };
+
+// export const dummy = () => {
+//   const s3 = new AWS.S3();
+
+//   s3.getSignedUrlPromise('uploadPart', {}).on('build')
+// }
