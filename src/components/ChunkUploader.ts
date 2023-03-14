@@ -40,9 +40,9 @@ export class ChunkUploader {
           return data;
         },
       });
-      this.etag = response.headers.etag
-        .replaceAll('"', "")
-        .replaceAll("\\", "");
+      this.etag = response.headers.etag;
+      // .replaceAll('"', "")
+      // .replaceAll("\\", "");
       this.completed = true;
       success(this.index, this.etag);
     } catch (error: Error | unknown) {
