@@ -2,6 +2,7 @@ import React, { ChangeEvent, useState } from "react";
 import Button from "@mui/material/Button";
 import Input from "@mui/material/Input";
 import { LargeFileUploader } from "./LargeFileUploader";
+import axios, { AxiosResponse } from "axios";
 
 const FileUploader: React.FC = () => {
   // file to upload
@@ -12,22 +13,27 @@ const FileUploader: React.FC = () => {
       return;
     }
 
-    //TODO: change this call
-    // const presignedUrl: string | null = getPreSignedUrl(selectedFile.name);
+    const params = {
+      bucket: process.env.REACT_APP_S3_BUCKET,
+      objectName: selectedFile.name,
+      expires: 12000,
+    };
 
-    // if (!presignedUrl) {
-    //   console.log("File upload failed");
-    //   return;
-    // }
+    const preSignedUrlResponse: AxiosResponse = await axios.get(
+      process.env.REACT_APP_MULTIPART_UPLOAD_APIS + "/get-presigned-url",
+      { params: params }
+    );
 
-    // try {
-    //   console.log(presignedUrl);
-    //   const response = await axios.put(presignedUrl, selectedFile);
-    //   console.log(response);
-    // } catch (error: Error | unknown) {
-    //   console.log("Failed upload with presigned url");
-    //   console.log(error);
-    // }
+    const preSignedUrl: string = preSignedUrlResponse.data.preSignedUrl;
+
+    console.log(preSignedUrl);
+
+    await axios.put(preSignedUrl, selectedFile, {
+      transformRequest: (data, headers) => {
+        delete headers["Content-Type"];
+        return data;
+      },
+    });
   };
 
   const uploadLargeFile = async () => {
