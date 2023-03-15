@@ -24,8 +24,6 @@ export class LargeFileUploader {
       ChunkUploader
     >();
 
-    // const s3 = new AWS.S3({credentials: {}})
-
     window.addEventListener("offline", () => {
       this.handleUploadInterrupt();
     });
